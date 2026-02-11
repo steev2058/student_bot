@@ -8,3 +8,6 @@ __pycache__/
 htmlcov/
 *.log
 alembic.ini
+
+build/
+*.egg-info/
