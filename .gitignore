@@ -11,3 +11,6 @@ alembic.ini
 
 build/
 *.egg-info/
+
+data/pdfs/
+data/toc/
