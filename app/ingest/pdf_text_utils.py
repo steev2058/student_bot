@@ -7,6 +7,8 @@ from typing import Any
 from PIL import Image
 import pytesseract
 
+from app.core.config import settings
+
 _ARABIC_CHAR_RE = re.compile(r"[\u0600-\u06FF]")
 _WORD_RE = re.compile(r"\S+")
 # Heuristic gibberish markers: replacement glyphs, long mixed tokens, or noisy symbol runs.
@@ -39,8 +41,8 @@ def extract_page_text_layout_aware(page: Any) -> str:
                 parts.append(t)
 
     text = "\n".join(parts) if parts else (page.get_text("text") or "")
-    # OCR fallback for pages with weak/broken text layer.
-    if len(text.strip()) < 40:
+    # OCR fallback for pages with near-empty text layer only (enabled via env).
+    if settings.PDF_USE_OCR and len(text.strip()) < 8:
         try:
             pix = page.get_pixmap(matrix=None, alpha=False)
             img = Image.open(io.BytesIO(pix.tobytes("png")))

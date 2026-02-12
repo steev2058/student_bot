@@ -59,9 +59,9 @@ def ingest_subject(db: Session, subject_code: str, name_ar: str, pdf_path: str, 
 
     toc_debug = extract_toc_with_fallback(source_pdf_path, subject_code)
 
-    db.query(TocItem).filter(TocItem.subject_id == subj.id).delete()
     db.query(Chunk).filter(Chunk.subject_id == subj.id).delete()
     db.query(LessonEmbedding).filter(LessonEmbedding.subject_id == subj.id).delete()
+    db.query(TocItem).filter(TocItem.subject_id == subj.id).delete()
     db.commit()
 
     toc_items: list[TocItem] = []
