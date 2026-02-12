@@ -1,0 +1,46 @@
+{
+  "subject": "physics",
+  "benchmark_query_token": "الجمهورية",
+  "retrieval_ms": {
+    "avg": 1.42,
+    "p95": 1.29,
+    "min": 0.91,
+    "max": 8.29
+  },
+  "explain_non_cached_ms": {
+    "avg": 12.34,
+    "p95": 13.97,
+    "min": 10.22,
+    "max": 18.08
+  },
+  "explain_cached_ms": {
+    "avg": 1.28,
+    "p95": 1.43,
+    "min": 0.97,
+    "max": 2.2
+  },
+  "db_query_timings_ms": {
+    "count": 270,
+    "avg": 0.33,
+    "p95": 0.54,
+    "max": 0.92,
+    "slow_threshold_ms": 50,
+    "slow_queries_count": 0,
+    "slow_queries_top10": []
+  },
+  "cost_estimate": {
+    "formula": "MonthlyCost = DAU * QPD * 30 * [ (Tin/1000)*Pin + (Tout/1000)*Pout + (Temb/1000)*Pemb ]",
+    "assumptions": {
+      "DAU": 1000,
+      "QPD": 12,
+      "Tin": 650,
+      "Tout": 280,
+      "Temb": 120,
+      "Pin_per_1k": 0.00015,
+      "Pout_per_1k": 0.0006,
+      "Pemb_per_1k": 2e-05
+    },
+    "monthly_usd_estimate": 96.44,
+    "note": "Replace price constants with current provider pricing for exact budgeting."
+  }
+}
