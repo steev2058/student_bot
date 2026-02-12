@@ -4,6 +4,7 @@ from app.rag.embeddings import deterministic_embedding
 from app.services.cache_service import make_cache_key, get_cache, set_cache
 from rapidfuzz import fuzz
 from app.core.config import settings
+import re
 
 
 def _cos(a, b):
@@ -49,6 +50,34 @@ def _build_citation(db: Session, subject: Subject | None, chunk: Chunk) -> str:
     return f"{subject_label} | {lesson_label} | {page_label}"
 
 
+def _extract_useful_lines(text: str, query: str, limit: int = 4) -> list[str]:
+    q_terms = [t for t in re.findall(r"[\w\u0600-\u06FF]+", query.lower()) if len(t) >= 3]
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    good = []
+    for ln in lines:
+        # skip noisy numeric/table-only lines
+        if re.fullmatch(r"[\d\s\-–—.,:;()]+", ln):
+            continue
+        if len(ln) < 20:
+            continue
+        ln_low = ln.lower()
+        score = sum(1 for t in q_terms if t in ln_low)
+        if score > 0:
+            good.append((score, ln))
+    good.sort(key=lambda x: x[0], reverse=True)
+    out = [ln for _, ln in good[:limit]]
+    if out:
+        return out
+
+    # fallback: first non-noisy lines
+    for ln in lines:
+        if len(ln) >= 20 and not re.fullmatch(r"[\d\s\-–—.,:;()]+", ln):
+            out.append(ln)
+        if len(out) >= limit:
+            break
+    return out
+
+
 def answer_question(db: Session, user_id: int, subject_id: int, question: str, lesson_range, watermark: str | None = None):
     subj = db.query(Subject).filter(Subject.id == subject_id).first()
     content_version = str(subj.content_version if subj else settings.CONTENT_VERSION)
@@ -84,7 +113,24 @@ def answer_question(db: Session, user_id: int, subject_id: int, question: str, l
             "citations": [],
         }
 
-    body = "\n".join([c.content[:180] for c in retrieved[:3]])
+    extracted: list[str] = []
+    for c in retrieved[:4]:
+        extracted.extend(_extract_useful_lines(c.content, question, limit=2))
+    # deduplicate while preserving order
+    seen = set()
+    filtered = []
+    for ln in extracted:
+        key = ln.strip()
+        if key and key not in seen:
+            seen.add(key)
+            filtered.append(key)
+    body = "\n".join(filtered[:5])
+    if not body:
+        return {
+            "answer": "لم أجد نصًا واضحًا قابلًا للتوثيق في نطاق الدرس الحالي. اختر درسًا أدق أو أعد صياغة السؤال.",
+            "citations": citations,
+        }
+
     answer = f"بناءً على محتوى الكتاب:\n{body}\n\nالمراجع:\n- " + "\n- ".join(citations)
 
     if "المراجع" not in answer:
