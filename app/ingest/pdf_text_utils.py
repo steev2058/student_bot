@@ -4,9 +4,6 @@ import io
 import re
 from typing import Any
 
-from PIL import Image
-import pytesseract
-
 from app.core.config import settings
 
 _ARABIC_CHAR_RE = re.compile(r"[\u0600-\u06FF]")
@@ -44,6 +41,9 @@ def extract_page_text_layout_aware(page: Any) -> str:
     # OCR fallback for pages with near-empty text layer only (enabled via env).
     if settings.PDF_USE_OCR and len(text.strip()) < 8:
         try:
+            from PIL import Image
+            import pytesseract
+
             pix = page.get_pixmap(matrix=None, alpha=False)
             img = Image.open(io.BytesIO(pix.tobytes("png")))
             ocr_text = pytesseract.image_to_string(img, lang="ara") or ""
