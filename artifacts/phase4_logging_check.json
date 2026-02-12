@@ -1,0 +1,18 @@
+{
+  "log_line": {
+    "asctime": "2026-02-12 06:49:04,310",
+    "levelname": "INFO",
+    "name": "verify",
+    "message": "phase4-log-check",
+    "funcName": "<module>",
+    "lineno": 9
+  },
+  "required_present": {
+    "asctime": true,
+    "levelname": true,
+    "name": true,
+    "message": true,
+    "funcName": true,
+    "lineno": true
+  }
+}

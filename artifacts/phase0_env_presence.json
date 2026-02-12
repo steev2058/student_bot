@@ -1,0 +1,12 @@
+{
+  "TELEGRAM_BOT_TOKEN_env": false,
+  "PDF_star_env": false,
+  "DB_connection_env": false,
+  "env_files": [
+    ".env",
+    ".env.example"
+  ],
+  "TELEGRAM_BOT_TOKEN_file": false,
+  "PDF_star_file": true,
+  "DB_connection_file": true
+}

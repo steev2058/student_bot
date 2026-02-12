@@ -14,7 +14,7 @@ from app.bot.keyboards import (
     lesson_suggestions_keyboard,
 )
 from app.services.coupons import generate_coupons, redeem_coupon
-from app.services.rate_limit import check_limit
+from app.services.rate_limit import check_limit_with_meta
 from app.models.entities import Subject, User, UserSession, EventLog, Subscription, SubjectUnlock, TocItem
 from app.services.rag_service import answer_question
 from app.services.toc_service import get_units, get_lessons_for_unit, search_lessons
@@ -264,10 +264,12 @@ async def on_text(m: Message):
         return
 
     with SessionLocal() as db:
-        if not check_limit(db, m.from_user.id, "global", 30, 600):
-            return await m.answer("تم تجاوز الحد المسموح (30 رسالة/10 دقائق). حاول لاحقاً.")
-        if not check_limit(db, m.from_user.id, "ai_heavy", 10, 600):
-            return await m.answer("تم تجاوز حد الاستخدام الذكي (10 طلبات/10 دقائق). الرجاء الانتظار قليلاً.")
+        ok_global, global_minutes_left = check_limit_with_meta(db, m.from_user.id, "global", 30, 600)
+        if not ok_global:
+            return await m.answer(f"⏳ تم التهدئة المؤقتة لحماية الخدمة. حاول بعد حوالي {global_minutes_left} دقيقة.")
+        ok_ai, ai_minutes_left = check_limit_with_meta(db, m.from_user.id, "ai_heavy", 10, 600)
+        if not ok_ai:
+            return await m.answer(f"⏳ وصلت للحد الذكي حالياً. يمكنك المحاولة بعد حوالي {ai_minutes_left} دقيقة.")
 
         u = _get_or_create_user(db, m.from_user.id, m.from_user.username)
         sess = _get_or_create_session(db, u.id)

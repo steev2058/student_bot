@@ -1,0 +1,10 @@
+{
+  "subject": "physics",
+  "question": "الجمهورية",
+  "first_cached": false,
+  "second_cached": true,
+  "latency_first_ms": 29.43,
+  "latency_second_ms": 2.34,
+  "cache_hit_faster_or_equal": true,
+  "answer_has_refs": true
+}
