@@ -119,6 +119,20 @@ def answer_question(db: Session, user_id: int, subject_id: int, question: str, l
         retrieved = retrieve_chunks(db, subject_id, question, lrange)
         set_cache(db, rkey, ",".join(str(c.id) for c in retrieved), ttl_days=7)
 
+    # Prefer pedagogical lessons over front-matter/preface boilerplate unless explicitly asked.
+    q_low = (question or "").lower()
+    wants_intro = any(x in q_low for x in ["مقدمة", "فهرس", "preface", "front matter", "introduction"])
+    if not wants_intro and retrieved:
+        cleaned = []
+        for c in retrieved:
+            toc = db.query(TocItem).filter(TocItem.id == c.toc_item_id).first() if c.toc_item_id else None
+            title = (toc.title.lower() if toc and toc.title else "")
+            if any(k in title for k in ["front matter", "preface", "مقدمه", "فهرس"]):
+                continue
+            cleaned.append(c)
+        if cleaned:
+            retrieved = cleaned
+
     if not retrieved:
         # Fallback: search across the selected subject to suggest a better lesson
         global_retrieved = retrieve_chunks(db, subject_id, question, lesson_range=None)
