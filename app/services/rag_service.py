@@ -78,6 +78,9 @@ def _extract_useful_lines(text: str, query: str, limit: int = 4) -> list[str]:
             continue
         ln_norm = normalize_arabic(ln).lower()
         score = sum(1 for t in q_terms if t in ln_norm)
+        # prefer explanatory statements over question-list prompts
+        if "؟" not in ln and "?" not in ln:
+            score += 2
         # avoid very noisy snippets
         arabic_letters = sum(1 for ch in ln if '\u0600' <= ch <= '\u06FF')
         latin_letters = sum(1 for ch in ln if ('a' <= ch.lower() <= 'z'))

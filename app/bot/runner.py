@@ -360,8 +360,10 @@ async def on_text(m: Message):
             watermark=f"User: @{m.from_user.username or 'unknown'} / id: {m.from_user.id}",
         )
         _, remaining = _demo_usage(db, u.id, sess.subject_id)
+        has_paid_access = bool(has_sub and has_unlock)
 
-    await m.answer(f"{ans['answer']}\n\n🎁 المتبقي في النسخة التجريبية لهذه المادة: {remaining}/10")
+    footer = "🔓 حسابك مفعل بدون حد أسئلة في هذه المادة." if has_paid_access else f"🎁 المتبقي في النسخة التجريبية لهذه المادة: {remaining}/10"
+    await m.answer(f"{ans['answer']}\n\n{footer}")
 
 
 async def main():
