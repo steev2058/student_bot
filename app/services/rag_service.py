@@ -4,6 +4,7 @@ from app.rag.embeddings import deterministic_embedding
 from app.services.cache_service import make_cache_key, get_cache, set_cache
 from rapidfuzz import fuzz
 from app.core.config import settings
+from app.ingest.pdf_text_utils import normalize_arabic
 import re
 
 
@@ -12,7 +13,8 @@ def _cos(a, b):
 
 
 def retrieve_chunks(db: Session, subject_id: int, query: str, lesson_range: tuple[int | None, int | None] | None = None, top_k: int = 5):
-    qv = deterministic_embedding(query)
+    query_norm = normalize_arabic(query)
+    qv = deterministic_embedding(query_norm)
     q = db.query(Chunk).filter(Chunk.subject_id == subject_id)
     if lesson_range:
         start, end = lesson_range
@@ -23,12 +25,12 @@ def retrieve_chunks(db: Session, subject_id: int, query: str, lesson_range: tupl
     rows = q.limit(1200).all()
 
     stop_terms = {"ما", "ماذا", "هل", "على", "الى", "إلى", "في", "من", "عن", "احسب", "اكتب", "عرّف", "عرف", "the", "what", "is"}
-    q_terms = [t for t in re.findall(r"[\w\u0600-\u06FF]+", query.lower()) if len(t) >= 3 and t not in stop_terms]
+    q_terms = [t for t in re.findall(r"[\w\u0600-\u06FF]+", query_norm.lower()) if len(t) >= 3 and t not in stop_terms]
 
     ranked = []
     for r in rows:
-        txt = (r.content or "").lower()
-        kw_score = fuzz.token_set_ratio(query, r.content[:300])
+        txt = normalize_arabic(r.content or "").lower()
+        kw_score = fuzz.token_set_ratio(query_norm, normalize_arabic((r.content or "")[:300]))
         overlap = sum(1 for t in q_terms if t in txt)
         rv = deterministic_embedding(r.content[:500])
         sem_score = _cos(qv, rv)
@@ -36,7 +38,7 @@ def retrieve_chunks(db: Session, subject_id: int, query: str, lesson_range: tupl
 
     # Hard guard against off-topic / out-of-book hallucinations:
     # require lexical overlap on meaningful terms from the question.
-    filtered = [x for x in ranked if (x[1] >= 1 and x[0] >= 20) or x[0] >= 45]
+    filtered = [x for x in ranked if x[1] >= 1 and x[0] >= 20]
     if not filtered:
         return []
 
@@ -63,17 +65,24 @@ def _build_citation(db: Session, subject: Subject | None, chunk: Chunk) -> str:
 
 
 def _extract_useful_lines(text: str, query: str, limit: int = 4) -> list[str]:
-    q_terms = [t for t in re.findall(r"[\w\u0600-\u06FF]+", query.lower()) if len(t) >= 3]
-    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    q_terms = [t for t in re.findall(r"[\w\u0600-\u06FF]+", normalize_arabic(query).lower()) if len(t) >= 3]
+
+    # split to sentence-like snippets for cleaner answers
+    raw_parts = re.split(r"[\n\.؛!?]+", text)
+    lines = [ln.strip() for ln in raw_parts if ln and ln.strip()]
     good = []
     for ln in lines:
-        # skip noisy numeric/table-only lines
         if re.fullmatch(r"[\d\s\-–—.,:;()]+", ln):
             continue
-        if len(ln) < 20:
+        if len(ln) < 25:
             continue
-        ln_low = ln.lower()
-        score = sum(1 for t in q_terms if t in ln_low)
+        ln_norm = normalize_arabic(ln).lower()
+        score = sum(1 for t in q_terms if t in ln_norm)
+        # avoid very noisy snippets
+        arabic_letters = sum(1 for ch in ln if '\u0600' <= ch <= '\u06FF')
+        latin_letters = sum(1 for ch in ln if ('a' <= ch.lower() <= 'z'))
+        if arabic_letters < 8 or latin_letters > arabic_letters:
+            continue
         if score > 0:
             good.append((score, ln))
     good.sort(key=lambda x: x[0], reverse=True)
@@ -81,9 +90,8 @@ def _extract_useful_lines(text: str, query: str, limit: int = 4) -> list[str]:
     if out:
         return out
 
-    # fallback: first non-noisy lines
     for ln in lines:
-        if len(ln) >= 20 and not re.fullmatch(r"[\d\s\-–—.,:;()]+", ln):
+        if len(ln) >= 25 and not re.fullmatch(r"[\d\s\-–—.,:;()]+", ln):
             out.append(ln)
         if len(out) >= limit:
             break
@@ -116,6 +124,20 @@ def answer_question(db: Session, user_id: int, subject_id: int, question: str, l
     else:
         retrieved = retrieve_chunks(db, subject_id, question, lrange)
         set_cache(db, rkey, ",".join(str(c.id) for c in retrieved), ttl_days=7)
+
+    # Prefer pedagogical lessons over front-matter/preface boilerplate unless explicitly asked.
+    q_low = (question or "").lower()
+    wants_intro = any(x in q_low for x in ["مقدمة", "فهرس", "preface", "front matter", "introduction"])
+    if not wants_intro and retrieved:
+        cleaned = []
+        for c in retrieved:
+            toc = db.query(TocItem).filter(TocItem.id == c.toc_item_id).first() if c.toc_item_id else None
+            title = (toc.title.lower() if toc and toc.title else "")
+            if any(k in title for k in ["front matter", "preface", "مقدمه", "فهرس"]):
+                continue
+            cleaned.append(c)
+        if cleaned:
+            retrieved = cleaned
 
     if not retrieved:
         # Fallback: search across the selected subject to suggest a better lesson
@@ -162,14 +184,15 @@ def answer_question(db: Session, user_id: int, subject_id: int, question: str, l
         if key and key not in seen:
             seen.add(key)
             filtered.append(key)
-    body = "\n".join(filtered[:5])
+    points = filtered[:4]
+    body = "\n".join([f"- {p}" for p in points])
     if not body:
         return {
             "answer": "لم أجد نصًا واضحًا قابلًا للتوثيق في نطاق الدرس الحالي. اختر درسًا أدق أو أعد صياغة السؤال.",
             "citations": citations,
         }
 
-    answer = f"بناءً على محتوى الكتاب:\n{body}\n\nالمراجع:\n- " + "\n- ".join(citations)
+    answer = f"خلاصة الدرس من الكتاب:\n{body}\n\nالمراجع:\n- " + "\n- ".join(citations)
 
     if "المراجع" not in answer:
         return {
