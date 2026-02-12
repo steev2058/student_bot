@@ -10,6 +10,7 @@ def subjects_keyboard():
         [InlineKeyboardButton(text="فيزياء", callback_data="sub:physics")],
         [InlineKeyboardButton(text="رياضيات 1", callback_data="sub:math1")],
         [InlineKeyboardButton(text="رياضيات 2", callback_data="sub:math2")],
+        [InlineKeyboardButton(text="علوم", callback_data="sub:science")],
     ])
 
 
