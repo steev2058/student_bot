@@ -1,7 +1,9 @@
 from pathlib import Path
 import fitz
 from sqlalchemy.orm import Session
+from app.core.config import settings
 from app.ingest.toc_extractor import extract_toc_with_fallback
+from app.ingest.pdf_text_utils import extract_page_text_layout_aware, normalize_arabic, chunk_text_words
 from app.models.entities import Subject, TocItem, Chunk, LessonEmbedding
 from app.rag.embeddings import deterministic_embedding
 
@@ -23,17 +25,13 @@ def _build_synthetic_toc(page_count: int) -> list[dict]:
     return items
 
 
-def _chunk_text(text: str, max_len: int = 900):
-    words = text.split()
-    cur, out = [], []
-    for w in words:
-        cur.append(w)
-        if len(" ".join(cur)) > max_len:
-            out.append(" ".join(cur))
-            cur = []
-    if cur:
-        out.append(" ".join(cur))
-    return out
+def _resolve_source_pdf_path(pdf_path: str) -> str:
+    if not settings.PDF_USE_OCR:
+        return pdf_path
+    ocr_candidate = Path(settings.PDF_OCR_DIR) / Path(pdf_path).name
+    if ocr_candidate.exists():
+        return str(ocr_candidate)
+    return pdf_path
 
 
 def _resolve_start_page(item: dict, mapping: dict[int, int]) -> int | None:
@@ -47,9 +45,11 @@ def _resolve_start_page(item: dict, mapping: dict[int, int]) -> int | None:
 
 
 def ingest_subject(db: Session, subject_code: str, name_ar: str, pdf_path: str, content_version: int):
+    source_pdf_path = _resolve_source_pdf_path(pdf_path)
+
     subj = db.query(Subject).filter(Subject.code == subject_code).first()
     if not subj:
-        subj = Subject(code=subject_code, name_ar=name_ar, pdf_path=pdf_path, content_version=content_version)
+        subj = Subject(code=subject_code, name_ar=name_ar, pdf_path=source_pdf_path, content_version=content_version)
         db.add(subj)
         db.commit()
         db.refresh(subj)
@@ -57,7 +57,7 @@ def ingest_subject(db: Session, subject_code: str, name_ar: str, pdf_path: str, 
         subj.content_version = content_version
         db.commit()
 
-    toc_debug = extract_toc_with_fallback(pdf_path, subject_code)
+    toc_debug = extract_toc_with_fallback(source_pdf_path, subject_code)
 
     db.query(TocItem).filter(TocItem.subject_id == subj.id).delete()
     db.query(Chunk).filter(Chunk.subject_id == subj.id).delete()
@@ -71,7 +71,7 @@ def ingest_subject(db: Session, subject_code: str, name_ar: str, pdf_path: str, 
 
     # Hard fallback: if TOC extraction returns nothing, synthesize a navigable plan.
     if not raw_items:
-        doc_tmp = fitz.open(pdf_path)
+        doc_tmp = fitz.open(source_pdf_path)
         raw_items = _build_synthetic_toc(doc_tmp.page_count)
         doc_tmp.close()
 
@@ -107,21 +107,24 @@ def ingest_subject(db: Session, subject_code: str, name_ar: str, pdf_path: str, 
         ti.end_pdf_page = (nxt - 1) if nxt is not None else None
     db.commit()
 
-    doc = fitz.open(pdf_path)
+    doc = fitz.open(source_pdf_path)
     lesson_items = [x for x in toc_items if x.level >= 2 and x.start_pdf_page is not None]
     lesson_items.sort(key=lambda x: x.start_pdf_page)
+    reverse_mapping = {int(pdf_idx): int(printed) for printed, pdf_idx in mapping.items()}
 
     for i in range(doc.page_count):
-        txt = doc[i].get_text("text")
-        chunks = _chunk_text(txt)
+        raw_text = extract_page_text_layout_aware(doc[i])
+        normalized_text = normalize_arabic(raw_text)
+        chunks = chunk_text_words(normalized_text, min_words=300, max_words=700, overlap_words=90)
         toc_id = None
         for ls in lesson_items:
             end = ls.end_pdf_page if ls.end_pdf_page is not None else doc.page_count - 1
             if (ls.start_pdf_page or 0) <= i <= end:
                 toc_id = ls.id
                 break
+        printed_page_number = reverse_mapping.get(i)
         for c in chunks:
-            db.add(Chunk(subject_id=subj.id, toc_item_id=toc_id, pdf_page_index=i, printed_page_number=None, content=c))
+            db.add(Chunk(subject_id=subj.id, toc_item_id=toc_id, pdf_page_index=i, printed_page_number=printed_page_number, content=c))
     db.commit()
 
     for ti in lesson_items:

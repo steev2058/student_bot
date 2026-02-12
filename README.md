@@ -34,6 +34,7 @@ Copy `.env.example` to `.env` and set:
 - `BOT_TOKEN`
 - `OPENAI_API_KEY` (optional; deterministic fallback active if empty)
 - PDF URLs (`PDF_PHYSICS_URL`, `PDF_MATH1_URL`, `PDF_MATH2_URLS`)
+- OCR toggle/path (`PDF_USE_OCR`, `PDF_OCR_DIR`)
 
 ## Run with Docker Compose
 ```bash

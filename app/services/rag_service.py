@@ -4,6 +4,7 @@ from app.rag.embeddings import deterministic_embedding
 from app.services.cache_service import make_cache_key, get_cache, set_cache
 from rapidfuzz import fuzz
 from app.core.config import settings
+from app.ingest.pdf_text_utils import normalize_arabic
 import re
 
 
@@ -12,7 +13,8 @@ def _cos(a, b):
 
 
 def retrieve_chunks(db: Session, subject_id: int, query: str, lesson_range: tuple[int | None, int | None] | None = None, top_k: int = 5):
-    qv = deterministic_embedding(query)
+    query_norm = normalize_arabic(query)
+    qv = deterministic_embedding(query_norm)
     q = db.query(Chunk).filter(Chunk.subject_id == subject_id)
     if lesson_range:
         start, end = lesson_range
@@ -23,12 +25,12 @@ def retrieve_chunks(db: Session, subject_id: int, query: str, lesson_range: tupl
     rows = q.limit(1200).all()
 
     stop_terms = {"ما", "ماذا", "هل", "على", "الى", "إلى", "في", "من", "عن", "احسب", "اكتب", "عرّف", "عرف", "the", "what", "is"}
-    q_terms = [t for t in re.findall(r"[\w\u0600-\u06FF]+", query.lower()) if len(t) >= 3 and t not in stop_terms]
+    q_terms = [t for t in re.findall(r"[\w\u0600-\u06FF]+", query_norm.lower()) if len(t) >= 3 and t not in stop_terms]
 
     ranked = []
     for r in rows:
-        txt = (r.content or "").lower()
-        kw_score = fuzz.token_set_ratio(query, r.content[:300])
+        txt = normalize_arabic(r.content or "").lower()
+        kw_score = fuzz.token_set_ratio(query_norm, normalize_arabic((r.content or "")[:300]))
         overlap = sum(1 for t in q_terms if t in txt)
         rv = deterministic_embedding(r.content[:500])
         sem_score = _cos(qv, rv)
@@ -36,7 +38,7 @@ def retrieve_chunks(db: Session, subject_id: int, query: str, lesson_range: tupl
 
     # Hard guard against off-topic / out-of-book hallucinations:
     # require lexical overlap on meaningful terms from the question.
-    filtered = [x for x in ranked if (x[1] >= 1 and x[0] >= 20) or x[0] >= 45]
+    filtered = [x for x in ranked if x[1] >= 1 and x[0] >= 20]
     if not filtered:
         return []
 
@@ -63,7 +65,7 @@ def _build_citation(db: Session, subject: Subject | None, chunk: Chunk) -> str:
 
 
 def _extract_useful_lines(text: str, query: str, limit: int = 4) -> list[str]:
-    q_terms = [t for t in re.findall(r"[\w\u0600-\u06FF]+", query.lower()) if len(t) >= 3]
+    q_terms = [t for t in re.findall(r"[\w\u0600-\u06FF]+", normalize_arabic(query).lower()) if len(t) >= 3]
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     good = []
     for ln in lines:

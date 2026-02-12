@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     WEBHOOK_BASE_URL: str = ""
     USE_WEBHOOK: bool = False
     CONTENT_VERSION: int = 1
+    PDF_USE_OCR: bool = False
+    PDF_OCR_DIR: str = "/data/pdfs_ocr"
 
 
 settings = Settings()  # type: ignore[call-arg]
