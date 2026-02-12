@@ -1,0 +1,171 @@
+{
+  "pdf_inventory": [
+    {
+      "path": "/data/pdfs/math1.pdf",
+      "size_bytes": 123320505
+    },
+    {
+      "path": "/data/pdfs/math2.pdf",
+      "size_bytes": 209906874
+    },
+    {
+      "path": "/data/pdfs/physics.pdf",
+      "size_bytes": 248446531
+    },
+    {
+      "path": "data/pdfs/math1.pdf",
+      "size_bytes": 123320505
+    },
+    {
+      "path": "data/pdfs/math2.pdf",
+      "size_bytes": 209906874
+    },
+    {
+      "path": "data/pdfs/physics.pdf",
+      "size_bytes": 248446531
+    }
+  ],
+  "subjects_count": 3,
+  "subjects": [
+    {
+      "subject_id": 1,
+      "code": "physics",
+      "name_ar": "فيزياء",
+      "pdf_path": "data/pdfs/physics.pdf",
+      "toc_items_total": 29,
+      "valid_range_count": 26,
+      "printed_page_count": 0,
+      "sample_checked": 3,
+      "sample_matched": 0,
+      "samples": [
+        {
+          "toc_item_id": 19,
+          "title": "الدرس 15",
+          "level": 2,
+          "start_pdf_page": 168,
+          "end_pdf_page": 179,
+          "match_within_pm2": false,
+          "note": ""
+        },
+        {
+          "toc_item_id": 10,
+          "title": "الدرس 8",
+          "level": 2,
+          "start_pdf_page": 84,
+          "end_pdf_page": 95,
+          "match_within_pm2": false,
+          "note": ""
+        },
+        {
+          "toc_item_id": 27,
+          "title": "الدرس 21",
+          "level": 2,
+          "start_pdf_page": 240,
+          "end_pdf_page": 251,
+          "match_within_pm2": false,
+          "note": ""
+        }
+      ],
+      "toc_quality_score": 44.83
+    },
+    {
+      "subject_id": 2,
+      "code": "math1",
+      "name_ar": "رياضيات 1",
+      "pdf_path": "data/pdfs/math1.pdf",
+      "toc_items_total": 25,
+      "valid_range_count": 22,
+      "printed_page_count": 0,
+      "sample_checked": 3,
+      "sample_matched": 0,
+      "samples": [
+        {
+          "toc_item_id": 30,
+          "title": "الوحدة 1",
+          "level": 1,
+          "start_pdf_page": 0,
+          "end_pdf_page": 11,
+          "match_within_pm2": false,
+          "note": ""
+        },
+        {
+          "toc_item_id": 48,
+          "title": "الدرس 15",
+          "level": 2,
+          "start_pdf_page": 168,
+          "end_pdf_page": 179,
+          "match_within_pm2": false,
+          "note": ""
+        },
+        {
+          "toc_item_id": 38,
+          "title": "الدرس 7",
+          "level": 2,
+          "start_pdf_page": 72,
+          "end_pdf_page": 83,
+          "match_within_pm2": false,
+          "note": ""
+        }
+      ],
+      "toc_quality_score": 44.0
+    },
+    {
+      "subject_id": 3,
+      "code": "math2",
+      "name_ar": "رياضيات 2",
+      "pdf_path": "data/pdfs/math2.pdf",
+      "toc_items_total": 22,
+      "valid_range_count": 18,
+      "printed_page_count": 0,
+      "sample_checked": 3,
+      "sample_matched": 0,
+      "samples": [
+        {
+          "toc_item_id": 70,
+          "title": "الوحدة 4",
+          "level": 1,
+          "start_pdf_page": 144,
+          "end_pdf_page": 155,
+          "match_within_pm2": false,
+          "note": ""
+        },
+        {
+          "toc_item_id": 60,
+          "title": "الوحدة 2",
+          "level": 1,
+          "start_pdf_page": 48,
+          "end_pdf_page": 59,
+          "match_within_pm2": false,
+          "note": ""
+        },
+        {
+          "toc_item_id": 59,
+          "title": "الدرس 4",
+          "level": 2,
+          "start_pdf_page": 36,
+          "end_pdf_page": 47,
+          "match_within_pm2": false,
+          "note": ""
+        }
+      ],
+      "toc_quality_score": 40.91
+    }
+  ],
+  "toc_json_parse": [
+    {
+      "path": "data/toc/physics.json",
+      "parseable": true,
+      "error": null
+    },
+    {
+      "path": "data/toc/math1.json",
+      "parseable": true,
+      "error": null
+    },
+    {
+      "path": "data/toc/math2.json",
+      "parseable": true,
+      "error": null
+    }
+  ]
+}

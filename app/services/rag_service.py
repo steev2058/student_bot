@@ -22,14 +22,26 @@ def retrieve_chunks(db: Session, subject_id: int, query: str, lesson_range: tupl
             q = q.filter(Chunk.pdf_page_index <= end)
     rows = q.limit(1200).all()
 
-    kw_sorted = sorted(rows, key=lambda r: fuzz.token_set_ratio(query, r.content[:300]), reverse=True)[:120]
+    stop_terms = {"ما", "ماذا", "هل", "على", "الى", "إلى", "في", "من", "عن", "احسب", "اكتب", "عرّف", "عرف", "the", "what", "is"}
+    q_terms = [t for t in re.findall(r"[\w\u0600-\u06FF]+", query.lower()) if len(t) >= 3 and t not in stop_terms]
 
-    scored = []
-    for r in kw_sorted:
+    ranked = []
+    for r in rows:
+        txt = (r.content or "").lower()
+        kw_score = fuzz.token_set_ratio(query, r.content[:300])
+        overlap = sum(1 for t in q_terms if t in txt)
         rv = deterministic_embedding(r.content[:500])
-        scored.append((_cos(qv, rv), r))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [r for _, r in scored[:top_k]]
+        sem_score = _cos(qv, rv)
+        ranked.append((kw_score, overlap, sem_score, r))
+
+    # Hard guard against off-topic / out-of-book hallucinations:
+    # require lexical overlap on meaningful terms from the question.
+    filtered = [x for x in ranked if x[1] >= 1 and x[0] >= 20]
+    if not filtered:
+        return []
+
+    filtered.sort(key=lambda x: (x[1], x[0], x[2]), reverse=True)
+    return [r for _, _, _, r in filtered[:top_k]]
 
 
 def _build_citation(db: Session, subject: Subject | None, chunk: Chunk) -> str:

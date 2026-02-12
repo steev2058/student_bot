@@ -1,0 +1,31 @@
+{
+  "subjects": 3,
+  "flow_checks": [
+    {
+      "subject": "physics",
+      "units_count": 6,
+      "lessons_in_first_unit": 4,
+      "explain_has_refs": false,
+      "search_top3_count": 3
+    },
+    {
+      "subject": "math1",
+      "units_count": 5,
+      "lessons_in_first_unit": 4,
+      "explain_has_refs": false,
+      "search_top3_count": 3
+    },
+    {
+      "subject": "math2",
+      "units_count": 5,
+      "lessons_in_first_unit": 4,
+      "explain_has_refs": false,
+      "search_top3_count": 3
+    }
+  ],
+  "demo_limit_check": {
+    "used": 10,
+    "blocked_before_ai": true,
+    "persisted_count": 10
+  }
+}
