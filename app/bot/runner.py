@@ -204,6 +204,7 @@ async def toc_select_lesson(c: CallbackQuery):
             await c.message.answer("تعذّر فتح هذا الدرس. جرّب من جديد.")
             return await c.answer()
 
+        lesson_title = lesson.title
         sess.toc_item_id = lesson.id
         sess.selected_range_start = lesson.start_pdf_page if lesson.start_pdf_page is not None else 0
         sess.selected_range_end = lesson.end_pdf_page if lesson.end_pdf_page is not None else 99999
@@ -212,7 +213,7 @@ async def toc_select_lesson(c: CallbackQuery):
         end = (sess.selected_range_end + 1) if sess.selected_range_end is not None else "آخر الكتاب"
     FLOW_STATE[c.from_user.id] = "ask"
     await c.message.answer(
-        f"✅ تم اختيار الدرس: {lesson.title}\n"
+        f"✅ تم اختيار الدرس: {lesson_title}\n"
         f"📄 نطاق الصفحات المعتمد: PDF {start} → {end}\n"
         f"الآن أرسل سؤالك وسألتزم بهذا النطاق مع توثيق.",
     )
