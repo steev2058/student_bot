@@ -1,6 +1,7 @@
 import asyncio
+import random
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 from app.core.config import settings
 from app.core.logging import setup_logging
@@ -15,7 +16,7 @@ from app.bot.keyboards import (
 )
 from app.services.coupons import generate_coupons, redeem_coupon
 from app.services.rate_limit import check_limit_with_meta
-from app.models.entities import Subject, User, UserSession, EventLog, Subscription, SubjectUnlock, TocItem
+from app.models.entities import Subject, User, UserSession, EventLog, Subscription, SubjectUnlock, TocItem, Chunk
 from app.services.rag_service import answer_question
 from app.services.toc_service import get_units, get_lessons_for_unit, search_lessons
 
@@ -25,6 +26,7 @@ dp = Dispatcher()
 
 # Lightweight ephemeral flow-state for UX modes.
 FLOW_STATE: dict[int, str] = {}
+QUIZ_STATE: dict[int, int] = {}
 
 
 def is_admin(uid: int) -> bool:
@@ -134,7 +136,44 @@ async def action_handler(c: CallbackQuery):
             FLOW_STATE[c.from_user.id] = "ask"
             await c.message.answer("✍️ أرسل سؤالك الآن. يفضّل اختيار درس أولاً لتحسين الدقة والتوثيق.")
         elif aid == "3":
-            await c.message.answer("اختبار سريع: قريباً (صيغة MCQ الأساسية موجودة في الاختبارات).")
+            # Quick MCQ from current lesson range (or subject fallback)
+            q = db.query(Chunk).filter(Chunk.subject_id == sess.subject_id)
+            if sess.selected_range_start is not None:
+                q = q.filter(Chunk.pdf_page_index >= sess.selected_range_start)
+            if sess.selected_range_end is not None:
+                q = q.filter(Chunk.pdf_page_index <= sess.selected_range_end)
+            rows = q.limit(200).all()
+            if len(rows) < 4:
+                rows = db.query(Chunk).filter(Chunk.subject_id == sess.subject_id).limit(300).all()
+
+            options = []
+            for r in rows:
+                txt = (r.content or "").strip().replace("\n", " ")
+                if len(txt) < 20:
+                    continue
+                options.append((txt[:80], r.id))
+                if len(options) >= 20:
+                    break
+
+            if len(options) < 4:
+                await c.message.answer("لم أتمكن من تجهيز اختبار سريع الآن. اختر درساً آخر أو جرّب بعد قليل.")
+            else:
+                correct_idx = random.randrange(len(options))
+                correct_text = options[correct_idx][0]
+                distractors = [t for i, (t, _) in enumerate(options) if i != correct_idx]
+                random.shuffle(distractors)
+                choices = [correct_text] + distractors[:3]
+                random.shuffle(choices)
+                right = choices.index(correct_text)
+                QUIZ_STATE[c.from_user.id] = right
+
+                kb = InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [InlineKeyboardButton(text=f"{i+1}) {ch[:50]}", callback_data=f"quiz_ans:{i}")]
+                        for i, ch in enumerate(choices)
+                    ]
+                )
+                await c.message.answer("⚡️ اختبار سريع: أي خيار ورد في الدرس؟", reply_markup=kb)
         elif aid == "4":
             await c.message.answer("اختبار امتحاني: قريباً.")
         else:
@@ -217,6 +256,22 @@ async def toc_select_lesson(c: CallbackQuery):
         f"📄 نطاق الصفحات المعتمد: PDF {start} → {end}\n"
         f"الآن أرسل سؤالك وسألتزم بهذا النطاق مع توثيق.",
     )
+    await c.answer()
+
+
+@dp.callback_query(F.data.startswith("quiz_ans:"))
+async def quiz_answer(c: CallbackQuery):
+    chosen = int(c.data.split(":", 1)[1])
+    right = QUIZ_STATE.get(c.from_user.id)
+    if right is None:
+        await c.message.answer("انتهت صلاحية هذا الاختبار. اطلب اختباراً سريعاً جديداً.")
+        return await c.answer()
+
+    if chosen == right:
+        await c.message.answer("✅ إجابة صحيحة! ممتاز.")
+    else:
+        await c.message.answer(f"❌ إجابة غير صحيحة. الإجابة الصحيحة كانت الخيار رقم {right + 1}.")
+    QUIZ_STATE.pop(c.from_user.id, None)
     await c.answer()
 
 

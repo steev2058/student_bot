@@ -6,7 +6,7 @@ from typing import Iterable
 from rapidfuzz import fuzz
 from sqlalchemy.orm import Session
 
-from app.models.entities import TocItem
+from app.models.entities import TocItem, Chunk
 
 
 @dataclass
@@ -109,17 +109,42 @@ def search_lessons(db: Session, subject_id: int, query: str, limit: int = 3) -> 
     )
     ends = _compute_end_pages(items)
     by_id = {x.id: x for x in items}
-    candidates: list[LessonView] = []
+    by_lesson: dict[int, tuple[int, TocItem]] = {}
+
     for it in items:
         if it.id in unit_ids:
             continue
         if it.level <= 1 and it.parent_id is None:
             continue
-        unit = by_id.get(it.parent_id) if it.parent_id else None
         score = fuzz.token_set_ratio(query, it.title)
-        if score < 20:
-            continue
-        candidates.append(
+        if score >= 20:
+            by_lesson[it.id] = (score, it)
+
+    # Fallback semantic-ish signal: score lessons using matching chunks content.
+    if len(by_lesson) < limit:
+        chunk_rows = (
+            db.query(Chunk)
+            .filter(Chunk.subject_id == subject_id, Chunk.toc_item_id.isnot(None))
+            .limit(2500)
+            .all()
+        )
+        for ch in chunk_rows:
+            score = fuzz.token_set_ratio(query, (ch.content or "")[:400])
+            if score < 35:
+                continue
+            lesson_id = int(ch.toc_item_id)
+            toc = by_id.get(lesson_id)
+            if not toc or toc.id in unit_ids:
+                continue
+            prev = by_lesson.get(lesson_id)
+            if not prev or score > prev[0]:
+                by_lesson[lesson_id] = (score, toc)
+
+    ranked = sorted(by_lesson.values(), key=lambda x: x[0], reverse=True)[:limit]
+    out: list[LessonView] = []
+    for _, it in ranked:
+        unit = by_id.get(it.parent_id) if it.parent_id else None
+        out.append(
             LessonView(
                 id=it.id,
                 title=it.title,
@@ -130,5 +155,25 @@ def search_lessons(db: Session, subject_id: int, query: str, limit: int = 3) -> 
                 printed_page_start=it.printed_page_start,
             )
         )
-    candidates.sort(key=lambda x: fuzz.token_set_ratio(query, x.title), reverse=True)
-    return candidates[:limit]
+
+    # Last-resort: return first lessons so user can continue instead of hard fail.
+    if not out:
+        for it in items:
+            if it.id in unit_ids:
+                continue
+            unit = by_id.get(it.parent_id) if it.parent_id else None
+            out.append(
+                LessonView(
+                    id=it.id,
+                    title=it.title,
+                    unit_id=unit.id if unit else None,
+                    unit_title=unit.title if unit else None,
+                    start_pdf_page=it.start_pdf_page,
+                    end_pdf_page=ends.get(it.id),
+                    printed_page_start=it.printed_page_start,
+                )
+            )
+            if len(out) >= limit:
+                break
+
+    return out[:limit]
