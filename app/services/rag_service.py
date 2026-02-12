@@ -36,7 +36,7 @@ def retrieve_chunks(db: Session, subject_id: int, query: str, lesson_range: tupl
 
     # Hard guard against off-topic / out-of-book hallucinations:
     # require lexical overlap on meaningful terms from the question.
-    filtered = [x for x in ranked if x[1] >= 1 and x[0] >= 20]
+    filtered = [x for x in ranked if (x[1] >= 1 and x[0] >= 20) or x[0] >= 45]
     if not filtered:
         return []
 
@@ -107,12 +107,38 @@ def answer_question(db: Session, user_id: int, subject_id: int, question: str, l
     cached_retrieval = get_cache(db, rkey)
     if cached_retrieval:
         ids = [int(x) for x in cached_retrieval.split(",") if x]
-        retrieved = db.query(Chunk).filter(Chunk.id.in_(ids)).all() if ids else []
+        if ids:
+            retrieved = db.query(Chunk).filter(Chunk.id.in_(ids)).all()
+        else:
+            # avoid sticky empty-cache scenario; recompute retrieval
+            retrieved = retrieve_chunks(db, subject_id, question, lrange)
+            set_cache(db, rkey, ",".join(str(c.id) for c in retrieved), ttl_days=7)
     else:
         retrieved = retrieve_chunks(db, subject_id, question, lrange)
         set_cache(db, rkey, ",".join(str(c.id) for c in retrieved), ttl_days=7)
 
     if not retrieved:
+        # Fallback: search across the selected subject to suggest a better lesson
+        global_retrieved = retrieve_chunks(db, subject_id, question, lesson_range=None)
+        if global_retrieved:
+            suggestions = []
+            seen = set()
+            for c in global_retrieved[:3]:
+                toc = db.query(TocItem).filter(TocItem.id == c.toc_item_id).first() if c.toc_item_id else None
+                if not toc:
+                    continue
+                unit = db.query(TocItem).filter(TocItem.id == toc.parent_id).first() if toc.parent_id else None
+                label = f"{unit.title} / {toc.title}" if unit else toc.title
+                if label in seen:
+                    continue
+                seen.add(label)
+                suggestions.append(f"- {label} (PDF p{c.pdf_page_index + 1})")
+            extra = "\n" + "\n".join(suggestions) if suggestions else ""
+            return {
+                "answer": "سؤالك يبدو خارج نطاق الدرس المحدد حالياً. اختر درساً أنسب أو استخدم (بحث داخل الكتاب). أقرب دروس مقترحة:" + extra,
+                "citations": [],
+            }
+
         return {
             "answer": "لا أملك مراجع كافية من نطاق الدرس الحالي. من فضلك اختر درساً محدداً أو ضيّق السؤال أكثر.",
             "citations": [],
