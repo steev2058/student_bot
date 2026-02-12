@@ -88,13 +88,16 @@ async def subject_menu(c: CallbackQuery):
         s = db.query(Subject).filter(Subject.code == code).first()
         u = _get_or_create_user(db, c.from_user.id, c.from_user.username)
         sess = _get_or_create_session(db, u.id)
-        if s:
-            sess.subject_id = s.id
-            sess.toc_item_id = None
-            sess.selected_range_start = None
-            sess.selected_range_end = None
-            db.commit()
-        used, remaining = _demo_usage(db, u.id, s.id) if s else (0, 10)
+        if not s:
+            await c.message.answer("تعذّر العثور على هذه المادة حالياً. جرّب /start مرة أخرى.")
+            return await c.answer()
+
+        sess.subject_id = s.id
+        sess.toc_item_id = None
+        sess.selected_range_start = None
+        sess.selected_range_end = None
+        db.commit()
+        used, remaining = _demo_usage(db, u.id, s.id)
     FLOW_STATE[c.from_user.id] = "idle"
     await c.message.answer(
         f"✅ تم اختيار المادة.\n🎁 النسخة التجريبية: {remaining}/10 متبقية في هذه المادة.",
