@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import io
 import re
 from typing import Any
+
+from PIL import Image
+import pytesseract
 
 _ARABIC_CHAR_RE = re.compile(r"[\u0600-\u06FF]")
 _WORD_RE = re.compile(r"\S+")
@@ -33,9 +37,19 @@ def extract_page_text_layout_aware(page: Any) -> str:
             t = (b[4] or "").strip()
             if t:
                 parts.append(t)
-    if parts:
-        return "\n".join(parts)
-    return page.get_text("text") or ""
+
+    text = "\n".join(parts) if parts else (page.get_text("text") or "")
+    # OCR fallback for pages with weak/broken text layer.
+    if len(text.strip()) < 40:
+        try:
+            pix = page.get_pixmap(matrix=None, alpha=False)
+            img = Image.open(io.BytesIO(pix.tobytes("png")))
+            ocr_text = pytesseract.image_to_string(img, lang="ara") or ""
+            if len(ocr_text.strip()) > len(text.strip()):
+                text = ocr_text
+        except Exception:
+            pass
+    return text
 
 
 def chunk_text_words(text: str, min_words: int = 300, max_words: int = 700, overlap_words: int = 90) -> list[str]:
