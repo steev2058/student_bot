@@ -1,0 +1,107 @@
+{
+  "physics": {
+    "path": "data/pdfs/physics.pdf",
+    "size_mb": 236.94,
+    "samples": [
+      {
+        "page": 1,
+        "text_len": 316,
+        "arabic_char_ratio": 1.0,
+        "gibberish_ratio": 0.1519,
+        "blocks_count": 6
+      },
+      {
+        "page": 5,
+        "text_len": 2,
+        "arabic_char_ratio": 0.0,
+        "gibberish_ratio": 0.0,
+        "blocks_count": 1
+      },
+      {
+        "page": 10,
+        "text_len": 3,
+        "arabic_char_ratio": 0.0,
+        "gibberish_ratio": 0.0,
+        "blocks_count": 1
+      },
+      {
+        "page": 20,
+        "text_len": 3,
+        "arabic_char_ratio": 0.0,
+        "gibberish_ratio": 0.0,
+        "blocks_count": 1
+      }
+    ],
+    "category": "A"
+  },
+  "math1": {
+    "path": "data/pdfs/math1.pdf",
+    "size_mb": 117.61,
+    "samples": [
+      {
+        "page": 1,
+        "text_len": 301,
+        "arabic_char_ratio": 1.0,
+        "gibberish_ratio": 0.1927,
+        "blocks_count": 4
+      },
+      {
+        "page": 5,
+        "text_len": 34,
+        "arabic_char_ratio": 0.0,
+        "gibberish_ratio": 0.0,
+        "blocks_count": 9
+      },
+      {
+        "page": 10,
+        "text_len": 3,
+        "arabic_char_ratio": 0.0,
+        "gibberish_ratio": 0.0,
+        "blocks_count": 1
+      },
+      {
+        "page": 20,
+        "text_len": 3,
+        "arabic_char_ratio": 0.0,
+        "gibberish_ratio": 0.0,
+        "blocks_count": 1
+      }
+    ],
+    "category": "B"
+  },
+  "math2": {
+    "path": "data/pdfs/math2.pdf",
+    "size_mb": 200.18,
+    "samples": [
+      {
+        "page": 1,
+        "text_len": 301,
+        "arabic_char_ratio": 1.0,
+        "gibberish_ratio": 0.1927,
+        "blocks_count": 4
+      },
+      {
+        "page": 5,
+        "text_len": 2,
+        "arabic_char_ratio": 0.0,
+        "gibberish_ratio": 0.0,
+        "blocks_count": 1
+      },
+      {
+        "page": 10,
+        "text_len": 3,
+        "arabic_char_ratio": 0.0,
+        "gibberish_ratio": 0.0,
+        "blocks_count": 1
+      },
+      {
+        "page": 20,
+        "text_len": 3,
+        "arabic_char_ratio": 0.0,
+        "gibberish_ratio": 0.0,
+        "blocks_count": 1
+      }
+    ],
+    "category": "A"
+  }
+}
