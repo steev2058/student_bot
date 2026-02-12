@@ -6,6 +6,23 @@ from app.models.entities import Subject, TocItem, Chunk, LessonEmbedding
 from app.rag.embeddings import deterministic_embedding
 
 
+def _build_synthetic_toc(page_count: int) -> list[dict]:
+    if page_count <= 0:
+        return []
+    lesson_span = 12
+    unit_size = 4
+    items: list[dict] = []
+    lesson_idx = 0
+    unit_idx = 0
+    for start in range(0, page_count, lesson_span):
+        if lesson_idx % unit_size == 0:
+            unit_idx += 1
+            items.append({"title": f"الوحدة {unit_idx}", "level": 1, "page": start})
+        lesson_idx += 1
+        items.append({"title": f"الدرس {lesson_idx}", "level": 2, "page": start})
+    return items
+
+
 def _chunk_text(text: str, max_len: int = 900):
     words = text.split()
     cur, out = [], []
@@ -51,6 +68,12 @@ def ingest_subject(db: Session, subject_code: str, name_ar: str, pdf_path: str, 
     stack: list[TocItem] = []
     mapping = {int(k): int(v) for k, v in (toc_debug.get("page_mapping") or {}).items()}
     raw_items = toc_debug.get("items") or []
+
+    # Hard fallback: if TOC extraction returns nothing, synthesize a navigable plan.
+    if not raw_items:
+        doc_tmp = fitz.open(pdf_path)
+        raw_items = _build_synthetic_toc(doc_tmp.page_count)
+        doc_tmp.close()
 
     for i, it in enumerate(raw_items):
         level = int(it.get("level", 2) or 2)
